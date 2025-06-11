@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<head>
+<meta charset="UTF-8">
+<title>CS 424 Lab 9</title>
+<script src="resources/three.js"></script>
+<script src="resources/OrbitControls.js"></script>
+<script src="resources/horse.js"></script> <!-- Import horse.js -->
+<script>
+    "use strict";
+    
+    var canvas, renderer, scene, camera;
+    var controls;
+    var animating = false;
+    var frameNumber = 0;
+    
+    var carousel, horses = [], poles = [];
+    
+    /**
+     * The render function draws the scene.
+     */
+    function render() {
+        renderer.render(scene, camera);
+    }
+    
+    /**
+     * This function is called by the init() method to create the world.
+     */
+    function createWorld() {
+        renderer.setClearColor("white");
+        scene = new THREE.Scene();
+    
+
+        // Camera with viewpoint light
+        camera = new THREE.PerspectiveCamera(30, canvas.width / canvas.height, 0.1, 100);
+        camera.position.z = 50;
+        var light = new THREE.DirectionalLight();
+        light.position.set(0, 0, 1);
+        camera.add(light);
+        scene.add(camera);
+    
+        // Carousel base
+        var baseGeometry = new THREE.CylinderGeometry(10, 10, 1, 32);
+        var baseMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 });
+        carousel = new THREE.Mesh(baseGeometry, baseMaterial);
+        scene.add(carousel);
+
+        var topGeometry = new THREE.ConeGeometry(10, 5, 32); // Cone with radius 10 and height 5
+        var topMaterial = new THREE.MeshPhongMaterial({ color: 0xFFD700 }); // Golden color
+        var carouselTop = new THREE.Mesh(topGeometry, topMaterial);
+        carouselTop.position.y = 6; // Position the top above the carousel base
+        carousel.add(carouselTop);
+        
+        // Poles
+        var poleHeight = 4.4; // Adjusted height to fit between the base and the top
+        var poleGeometry = new THREE.CylinderGeometry(0.2, 0.2, poleHeight, 10);
+        var poleMaterial = new THREE.MeshPhongMaterial({ color: 0xFFD700 });
+        for (let i = 0; i < 8; i++) {
+            let angle = (i / 8) * Math.PI * 2;
+            let pole = new THREE.Mesh(poleGeometry, poleMaterial);
+            pole.position.set(8 * Math.cos(angle), poleHeight / 2, 8 * Math.sin(angle)); // Position adjusted to touch the base and top
+            poles.push(pole);
+            carousel.add(pole);
+        }
+        
+        var textureLoader = new THREE.TextureLoader();
+        var earthTexture = textureLoader.load('resources/earth.jpg'); // Path to the texture file
+        var sphereGeometry = new THREE.SphereGeometry(2, 32, 32); // Sphere with radius 2
+        var sphereMaterial = new THREE.MeshPhongMaterial({ map: earthTexture }); // Golden color
+        var middleSphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+        middleSphere.position.y = 2; // Position the sphere in the middle between the base and the top
+        carousel.add(middleSphere);
+        // Horses
+        var loader = new THREE.GLTFLoader();
+        var horsePositions = [
+            { x: 8 * Math.cos(0), z: 8 * Math.sin(0), rotationY: 0 },
+            { x: 8 * Math.cos(Math.PI / 4), z: 8 * Math.sin(Math.PI / 4), rotationY: Math.PI / 4 },
+            { x: 8 * Math.cos(Math.PI / 2), z: 8 * Math.sin(Math.PI / 2), rotationY: Math.PI / 2 },
+            { x: 8 * Math.cos(3 * Math.PI / 4), z: 8 * Math.sin(3 * Math.PI / 4), rotationY: 3 * Math.PI / 4 },
+            { x: 8 * Math.cos(Math.PI), z: 8 * Math.sin(Math.PI), rotationY: Math.PI },
+            { x: 8 * Math.cos(5 * Math.PI / 4), z: 8 * Math.sin(5 * Math.PI / 4), rotationY: 5 * Math.PI / 4 },
+            { x: 8 * Math.cos(3 * Math.PI / 2), z: 8 * Math.sin(3 * Math.PI / 2), rotationY: 3 * Math.PI / 2 },
+            { x: 8 * Math.cos(7 * Math.PI / 4), z: 8 * Math.sin(7 * Math.PI / 4), rotationY: 7 * Math.PI / 4 }
+        ];
+
+        horsePositions.forEach((pos, index) => {
+            loader.load('resources/horse.js', function (gltf) {
+                let horse = gltf.scene;
+                horse.scale.set(0.03, 0.03, 0.03);
+                horse.position.set(pos.x, 1, pos.z);
+                horse.rotation.y = pos.rotationY;
+                horses.push(horse);
+                carousel.add(horse);
+            });
+        });
+    }
+    
+    /**
+     * This function is called once for each frame of the animation.
+     */
+    function updateForFrame() {
+        if (animating) {
+            carousel.rotation.y += 0.01;
+    
+            // Animate horses up and down
+            horses.forEach((horse, index) => {
+                let offset = (frameNumber / 20 + index) % (Math.PI * 2);
+                horse.position.y = Math.sin(offset) * 1.5;
+            });
+        }
+    }
+    
+    /**
+     * Called when user changes the Animate checkbox.
+     */
+    function doAnimateCheckbox() {
+        animating = document.getElementById("animateCheckbox").checked;
+        if (animating) {
+            requestAnimationFrame(doFrame);
+        }
+    }
+    
+    /**
+     * Drives the animation, called by system through requestAnimationFrame().
+     */
+    function doFrame() {
+        if (animating) {
+            frameNumber++;
+            updateForFrame();
+            render();
+            requestAnimationFrame(doFrame);
+        }
+    }
+    
+    /**
+     * Initialization function called on page load.
+     */
+    function init() {
+        try {
+            canvas = document.getElementById("glcanvas");
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false });
+        } catch (e) {
+            document.getElementById("message").innerHTML = "<b>Sorry, an error occurred:<br>" + e + "</b>";
+            return;
+        }
+        document.getElementById("animateCheckbox").checked = false;
+        document.getElementById("animateCheckbox").onchange = doAnimateCheckbox;
+        createWorld();
+        installOrbitControls();
+        render();
+    }
+    </script>
+</head>
+<body onload="init()">
+
+<h2>Three.js Modeling Demo: Merry-Go-Round</h2>
+
+<noscript>
+   <p style="color: #AA0000; font-weight: bold">Sorry, but this page requires JavaScript!</p>
+</noscript>
+
+<p style="color:#AA0000; font-weight: bold" id="message">
+</p>
+
+<p>
+   <label><input type="checkbox" id="animateCheckbox"><b>Animate</b></label>
+   <b style="margin-left:50px">Use the mouse to rotate the model.</b>
+</p>
+
+<div id="canvas-holder" style="float:left; border: thin solid black; background-color: white">
+   <canvas width=1200 height=600 id="glcanvas"></canvas>
+</div>
+
+</body>
+</html>
